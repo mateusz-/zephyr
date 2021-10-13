@@ -498,6 +498,11 @@ static void usb_dc_power_event_handler(nrfx_power_usb_evt_t event)
 {
 	enum usbd_periph_state new_state;
 
+	LOG_ERR("ps %u pe %u ch %u",
+		nrfx_power_usbstatus_get(), event,
+		nrf_usbreg_event_check(NRF_USBREGULATOR,
+				       NRF_USBREG_EVENT_USBPWRRDY)
+		);
 	switch (event) {
 	case NRFX_POWER_USB_EVT_DETECTED:
 #if !CONFIG_USB_NRFX_ATTACHED_EVENT_DELAY
