@@ -18,6 +18,11 @@ partition layout. Refer to :ref:`flash_map_api` for details about
 partition layout. You SoC must run MCUboot as the stage 1 bootloader.
 This sample is built as an application for the MCUboot bootloader.
 
+.. note::
+   There is no specific protection against reading decrypted firmware
+   from the flash in USB DFU implementation. The image can be read by the host
+   if the underlying backend, :ref:`flash_map_api`, has access to the area.
+
 Building and Testing
 ********************
 
