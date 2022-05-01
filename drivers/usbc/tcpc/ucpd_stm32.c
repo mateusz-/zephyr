@@ -15,7 +15,7 @@ LOG_MODULE_REGISTER(ucpd_stm32, CONFIG_USBC_LOG_LEVEL);
 #include <soc.h>
 #include <stddef.h>
 #include <zephyr/math/ilog2.h>
-#include <stm32g0xx_ll_system.h>
+#include <stm32_ll_system.h>
 
 #include "ucpd_stm32_priv.h"
 
@@ -1009,7 +1009,6 @@ static void ucpd_isr(const struct device *dev_inst[])
 	const struct tcpc_config *config;
 	struct tcpc_data *data;
 	uint32_t sr;
-	uint32_t ucpd_base;
 	struct alert_info *info;
 	uint32_t tx_done_mask = UCPD_SR_TXMSGSENT |
 				UCPD_SR_TXMSGABT |
@@ -1017,38 +1016,40 @@ static void ucpd_isr(const struct device *dev_inst[])
 				UCPD_SR_HRSTSENT |
 				UCPD_SR_HRSTDISC;
 
-	if (IS_ENABLED(CONFIG_SOC_SERIES_STM32G0X)) {
-		/*
-		 * Since the UCPD peripherals share the same interrupt line, determine
-		 * which one generated the interrupt.
-		 */
-		if (LL_SYSCFG_IsActiveFlag_UCPD1()) {
-			/* UCPD1 interrupt is pending */
-			ucpd_base = UCPD1_BASE;
-		} else if (LL_SYSCFG_IsActiveFlag_UCPD2()) {
-			/* UCPD2 interrupt is pending */
-			ucpd_base = UCPD2_BASE;
-		} else {
-			/*
-			 * The interrupt was triggered by some other device sharing this
-			 * interrupt line.
-			 */
-			return;
-		}
+#ifdef CONFIG_SOC_SERIES_STM32G0X
+	uint32_t ucpd_base;
 
-		/* Find correct device instance for this port */
-		for (int i = 0; i < DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT); i++) {
-			dev = dev_inst[i];
-			config = dev->config;
-			if ((uint32_t)(config->ucpd_port) == ucpd_base) {
-				break;
-			}
-		}
+	/*
+	 * Since the UCPD peripherals share the same interrupt line, determine
+	 * which one generated the interrupt.
+	 */
+	if (LL_SYSCFG_IsActiveFlag_UCPD1()) {
+		/* UCPD1 interrupt is pending */
+		ucpd_base = UCPD1_BASE;
+	} else if (LL_SYSCFG_IsActiveFlag_UCPD2()) {
+		/* UCPD2 interrupt is pending */
+		ucpd_base = UCPD2_BASE;
 	} else {
-		/* Only one port available */
-		dev = dev_inst[0];
-		config = dev->config;
+		/*
+		 * The interrupt was triggered by some other device sharing this
+		 * interrupt line.
+		 */
+		return;
 	}
+
+	/* Find correct device instance for this port */
+	for (int i = 0; i < DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT); i++) {
+		dev = dev_inst[i];
+		config = dev->config;
+		if ((uint32_t)(config->ucpd_port) == ucpd_base) {
+			break;
+		}
+	}
+#else
+	/* Only one port available */
+	dev = dev_inst[0];
+	config = dev->config;
+#endif /* CONFIG_SOC_SERIES_STM32G0X */
 
 	data = dev->data;
 	info = &data->alert_info;
@@ -1374,6 +1375,13 @@ static int ucpd_init(const struct device *dev)
 	uint32_t cfg1;
 	int ret;
 
+	LOG_DBG("Pinctrl signals configuration");
+	ret = pinctrl_apply_state(config->ucpd_pcfg, PINCTRL_STATE_DEFAULT);
+	if (ret < 0) {
+		LOG_ERR("USB pinctrl setup failed (%d)", ret);
+		return ret;
+	}
+
 	/*
 	 * The UCPD port is disabled in the LL_UCPD_Init function
 	 *
@@ -1458,8 +1466,10 @@ BUILD_ASSERT(DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT) > 0,
 	     "No compatible STM32 TCPC instance found");
 
 #define TCPC_DRIVER_INIT(inst)								\
+	PINCTRL_DT_INST_DEFINE(inst);							\
 	static struct tcpc_data drv_data_##inst;					\
 	static const struct tcpc_config drv_config_##inst = {				\
+		.ucpd_pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(inst),			\
 		.ucpd_port = (UCPD_TypeDef *)DT_INST_REG_ADDR(inst),			\
 		.ucpd_params.psc_ucpdclk = ilog2(DT_INST_PROP(inst, psc_ucpdclk)),	\
 		.ucpd_params.transwin = DT_INST_PROP(inst, transwin) - 1,		\
