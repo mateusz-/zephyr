@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2022 The Chromium OS Authors.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
+
+/ {
+	/* usbc.rst vbus-voltage-divider-adc start */
+	vbus1: vbus {
+		compatible = "vbus-voltage-divider-adc";
+		io-channels = <&adc2 8>;
+		output-ohms = <49900>;
+		full-ohms = <(330000 + 49900)>;
+	};
+	/* usbc.rst vbus-voltage-divider-adc end */
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/* usbc.rst usbc-port start */
+		port1: usbc-port@1 {
+			compatible = "usbc-port";
+			label = "PORT1";
+			reg = <1>;
+			tcpc = <&ucpd1>;
+			vbus = <&vbus1>;
+		};
+		/* usbc.rst usbc-port end */
+	};
+};
