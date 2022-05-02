@@ -1,0 +1,21 @@
+# Copyright 2022 The Chromium OS Authors
+# SPDX-License-Identifier: Apache-2.0
+
+description: USB-C ports
+
+compatible: "usbc-port"
+
+include: base.yaml
+
+properties:
+    tcpc:
+        type: phandle
+        required: true
+        description: |
+            Type-C Port Controller for this port.
+
+    vbus:
+        type: phandle
+        required: true
+        description: |
+            VBUS measurement and control for this port.
