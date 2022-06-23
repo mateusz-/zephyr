@@ -4,3 +4,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 source "drivers/usbc/tcpc/Kconfig"
+source "drivers/usbc/vbus/Kconfig"
