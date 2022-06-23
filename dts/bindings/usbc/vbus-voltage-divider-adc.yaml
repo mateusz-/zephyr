@@ -1,0 +1,13 @@
+# Copyright 2022 The Chromium OS Authors
+# SPDX-License-Identifier: Apache-2.0
+
+description: USBC ADC Measurement and control
+
+compatible: "vbus-voltage-divider-adc"
+
+include: [base.yaml, voltage-divider.yaml]
+
+properties:
+    discharge-gpios:
+       type: phandle-array
+       required: false

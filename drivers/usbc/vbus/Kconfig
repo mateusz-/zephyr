@@ -1,0 +1,19 @@
+# USBC VBUS Measurement configuration options
+
+# Copyright 2022 The Chromium OS Authors
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig USBC_VBUS_DRIVER
+	bool "USBC VBUS drivers"
+	help
+	  Enable USBC drivers
+
+if USBC_VBUS_DRIVER
+
+source "drivers/usbc/vbus/Kconfig.vbus_voltage_divider_adc"
+
+endif # USBC_VBUS_DRIVER
+
+module = USBC
+module-str = usbc
+source "subsys/logging/Kconfig.template.log_config"
