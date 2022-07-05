@@ -20,68 +20,81 @@ LOG_MODULE_REGISTER(usbc_stack);
 static const struct usbc_subsystem_api usbc_api;
 static int usbc_subsys_init(const struct device *dev);
 
-#define THREAD_STACK(inst) K_THREAD_STACK_DEFINE(my_stack_area_##inst, CONFIG_USBC_STACK_SIZE)
+static ALWAYS_INLINE void usbc_handler(void *port_dev)
+{
+	const struct device *dev = (const struct device *)port_dev;
+	struct usbc_port_data *port = dev->data;
+	struct request_value *req;
+	int32_t request;
 
-#define PORT_THREAD(inst) void run_usbc_##inst(void *port_dev, void *unused1, void *unused2) \
-	{										     \
-		const struct device *dev = (const struct device *)port_dev;		     \
-		struct usbc_port_data *port = dev->data;				     \
-		struct request_value *req;						     \
-		int32_t request;							     \
-											     \
-		while (1) {								     \
-			req = k_fifo_get(&port->request_fifo, K_NO_WAIT);		     \
-			request = (req != NULL) ? req->val : REQUEST_NOP;		     \
-			pe_run(dev, request);					     \
-			prl_run(dev);						     \
-			tc_run(dev, request);					     \
-			if (request == PRIV_PORT_REQUEST_SUSPEND) {			     \
-				k_thread_suspend(port->port_thread);			     \
-			}								     \
-			k_msleep(CONFIG_USBC_STATE_MACHINE_CYCLE_TIME);			     \
-		}									     \
-	}
-#define CREATE_THREAD(inst) void create_thread_##inst(const struct device *dev)		\
-	{										\
-		struct usbc_port_data *port = dev->data;				\
-											\
-		port->port_thread = k_thread_create(&port->thread_data,			\
-				my_stack_area_##inst,					\
-				K_THREAD_STACK_SIZEOF(my_stack_area_##inst),		\
-				run_usbc_##inst,					\
-				(void *)dev, 0, 0,					\
-				CONFIG_USBC_THREAD_PRIORITY, K_ESSENTIAL, K_NO_WAIT);	\
-		k_thread_suspend(port->port_thread);					\
+	req = k_fifo_get(&port->request_fifo, K_NO_WAIT);
+	request = (req != NULL) ? req->val : REQUEST_NOP;
+	pe_run(dev, request);
+	prl_run(dev);
+	tc_run(dev, request);
+
+	if (request == PRIV_PORT_REQUEST_SUSPEND) {
+		k_thread_suspend(port->port_thread);
 	}
 
-#define USBC_SUBSYS_INIT(inst)						 \
-	THREAD_STACK(inst);						 \
-	PORT_THREAD(inst)						 \
-	CREATE_THREAD(inst)						 \
-	static struct tc_sm_t tc_##inst;				 \
-	static struct policy_engine pe_##inst;				 \
-	static struct protocol_layer_rx_t prl_rx_##inst;		 \
-	static struct protocol_layer_tx_t prl_tx_##inst;		 \
-	static struct protocol_hard_reset_t prl_hr_##inst;		 \
-	static struct usbc_port_data usbc_port_data_##inst = {		 \
-		.tc = &tc_##inst,					 \
-		.pe = &pe_##inst,					 \
-		.prl_rx = &prl_rx_##inst,				 \
-		.prl_tx = &prl_tx_##inst,				 \
-		.prl_hr = &prl_hr_##inst,				 \
-		.tcpc = DEVICE_DT_GET(DT_INST_PROP(inst, tcpc)),	 \
-		.vbus = DEVICE_DT_GET(DT_INST_PROP(inst, vbus)),	 \
-	};								 \
-	static const struct usbc_port_config usbc_port_config_##inst = { \
-		.create_thread = create_thread_##inst,			 \
-	};								 \
-	DEVICE_DT_INST_DEFINE(inst,					 \
-			      &usbc_subsys_init,			 \
-			      NULL,					 \
-			      &usbc_port_data_##inst,			 \
-			      &usbc_port_config_##inst,			 \
-			      APPLICATION,				 \
-			      CONFIG_KERNEL_INIT_PRIORITY_DEFAULT,	 \
+	k_msleep(CONFIG_USBC_STATE_MACHINE_CYCLE_TIME);
+}
+
+#define USBC_SUBSYS_INIT(inst)							\
+	K_THREAD_STACK_DEFINE(my_stack_area_##inst,				\
+			      CONFIG_USBC_STACK_SIZE);				\
+										\
+	static struct tc_sm_t tc_##inst;					\
+	static struct policy_engine pe_##inst;					\
+	static struct protocol_layer_rx_t prl_rx_##inst;			\
+	static struct protocol_layer_tx_t prl_tx_##inst;			\
+	static struct protocol_hard_reset_t prl_hr_##inst;			\
+										\
+	static void run_usbc_##inst(void *port_dev,				\
+				    void *unused1,				\
+				    void *unused2)				\
+	{									\
+		while (1) {							\
+			usbc_handler(port_dev);					\
+		}								\
+	}									\
+										\
+	static void create_thread_##inst(const struct device *dev)		\
+	{									\
+		struct usbc_port_data *port = dev->data;			\
+										\
+		port->port_thread = k_thread_create(&port->thread_data,		\
+				my_stack_area_##inst,				\
+				K_THREAD_STACK_SIZEOF(my_stack_area_##inst),	\
+				run_usbc_##inst,				\
+				(void *)dev, 0, 0,				\
+				CONFIG_USBC_THREAD_PRIORITY,			\
+				K_ESSENTIAL,					\
+				K_NO_WAIT);					\
+		k_thread_suspend(port->port_thread);				\
+	}									\
+										\
+	static struct usbc_port_data usbc_port_data_##inst = {			\
+		.tc = &tc_##inst,						\
+		.pe = &pe_##inst,						\
+		.prl_rx = &prl_rx_##inst,					\
+		.prl_tx = &prl_tx_##inst,					\
+		.prl_hr = &prl_hr_##inst,					\
+		.tcpc = DEVICE_DT_GET(DT_INST_PROP(inst, tcpc)),		\
+		.vbus = DEVICE_DT_GET(DT_INST_PROP(inst, vbus)),		\
+	};									\
+										\
+	static const struct usbc_port_config usbc_port_config_##inst = {	\
+		.create_thread = create_thread_##inst,				\
+	};									\
+										\
+	DEVICE_DT_INST_DEFINE(inst,						\
+			      &usbc_subsys_init,				\
+			      NULL,						\
+			      &usbc_port_data_##inst,				\
+			      &usbc_port_config_##inst,				\
+			      APPLICATION,					\
+			      CONFIG_KERNEL_INIT_PRIORITY_DEFAULT,		\
 			      &usbc_api);
 
 DT_INST_FOREACH_STATUS_OKAY(USBC_SUBSYS_INIT)
