@@ -115,7 +115,7 @@ USBH_DEFINE_CLASS(bazfoo) = {
 	.resumed = bazfoo_resumed,
 };
 
-static uint8_t vreq_test_buf[1024];
+static uint8_t vreq_test_buf[1024] = { 0x7b, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0xd4, 0xff, 0x0f, 0x7d };
 
 static int cmd_bulk(const struct shell *sh, size_t argc, char **argv)
 {
