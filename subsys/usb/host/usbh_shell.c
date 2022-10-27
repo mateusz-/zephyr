@@ -339,6 +339,28 @@ static int cmd_feature_set_prst(const struct shell *sh,
 	return err;
 }
 
+static int cmd_feature_set_pstn_ctrls(const struct shell *sh,
+				      size_t argc, char **argv)
+{
+	uint8_t addr;
+	uint8_t iface;
+	uint8_t value;
+	int err;
+
+	addr = strtol(argv[1], NULL, 10);
+	iface = strtol(argv[2], NULL, 10);
+	value = strtol(argv[3], NULL, 10);
+
+	err = usbh_req_set_pstn_ctrls(uhc_dev, addr, iface, value);
+	if (err) {
+		shell_error(sh, "host: Failed to set pstn ctrls");
+	} else {
+		shell_print(sh, "host: Device 0x%02x, ctrls set %d", addr, value);
+	}
+
+	return err;
+}
+
 static int cmd_device_config(const struct shell *sh,
 			     size_t argc, char **argv)
 {
@@ -559,6 +581,8 @@ SHELL_STATIC_SUBCMD_SET_CREATE(device_cmds,
 		      cmd_vendor_out, 3, 0),
 	SHELL_CMD_ARG(bulk, NULL, "<address> <endpoint> <length>",
 		      cmd_bulk, 4, 0),
+	SHELL_CMD_ARG(pstn_ctrls, NULL, "<address> <interface> <value>",
+		      cmd_feature_set_pstn_ctrls, 4, 0),
 	SHELL_SUBCMD_SET_END
 );
 

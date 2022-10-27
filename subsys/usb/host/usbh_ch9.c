@@ -200,3 +200,19 @@ int usbh_req_set_hcfs_prst(const struct device *dev,
 			      bmRequestType, bRequest, wValue, wIndex, 0,
 			      NULL);
 }
+
+int usbh_req_set_pstn_ctrls(const struct device *dev,
+			    const uint8_t addr, const uint8_t iface,
+			    const uint8_t value)
+{
+	const uint8_t bmRequestType = USB_REQTYPE_DIR_TO_DEVICE << 7 |
+	                              USB_REQTYPE_TYPE_CLASS << 5 |
+	                              USB_REQTYPE_RECIPIENT_INTERFACE << 0;
+	const uint8_t bRequest = USB_PSTN_SET_CONTROL_LINE_STATE;
+	const uint16_t wValue = value;
+	const uint16_t wIndex = iface;
+
+	return usbh_req_setup(dev, addr,
+			      bmRequestType, bRequest, wValue, wIndex, 0,
+			      NULL);
+}

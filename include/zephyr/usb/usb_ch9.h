@@ -115,6 +115,28 @@ static inline bool usb_reqtype_is_to_device(struct usb_setup_packet *setup)
 #define USB_HCREQ_GET_TT_STATE		0x0A
 #define USB_HCREQ_STOP_TT		0x0B
 
+/** USB CDC PSTN Request Codes defined in PSTN spec. Table 13 */
+#define USB_PSTN_SET_COMM_FEATURE	0x02
+#define USB_PSTN_GET_COMM_FEATURE	0x03
+#define USB_PSTN_CLEAR_COMM_FEATURE	0x04
+#define USB_PSTN_SET_AUX_LINE_STATE	0x10
+#define USB_PSTN_SET_HOOK_STATE		0x11
+#define USB_PSTN_PULSE_SETUP		0x12
+#define USB_PSTN_SEND_PULSE		0x13
+#define USB_PSTN_SET_PULSE_TIME		0x14
+#define USB_PSTN_RING_AUX_JACK		0x15
+#define USB_PSTN_SET_LINE_CODING	0x20
+#define USB_PSTN_GET_LINE_CODING	0x21
+#define USB_PSTN_SET_CONTROL_LINE_STATE	0x22
+#define USB_PSTN_SEND_BREAK		0x23
+#define USB_PSTN_SET_RINGER_PARMS	0x30
+#define USB_PSTN_GET_RINGER_PARMS	0x31
+#define USB_PSTN_SET_OPERATION_PARMS	0x32
+#define USB_PSTN_GET_OPERATION_PARMS	0x33
+#define USB_PSTN_SET_LINE_PARMS		0x34
+#define USB_PSTN_GET_LINE_PARMS		0x35
+#define USB_PSTN_DIAL_DIGITS		0x36
+
 /** Descriptor Types defined in spec. Table 9-5 */
 #define USB_DESC_DEVICE			1
 #define USB_DESC_CONFIGURATION		2
