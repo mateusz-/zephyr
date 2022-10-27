@@ -878,6 +878,7 @@ static int max3421e_mode_setup(const struct device *dev)
 	const uint8_t mode = MAX3421E_DPPULLDN | MAX3421E_DMPULLDN |
 			     MAX3421E_DELAYISO | MAX3421E_HOST;
 	struct max3421e_data *priv = uhc_get_private(dev);
+	uint8_t io = 0;
 	uint8_t tmp;
 	int ret;
 
@@ -898,6 +899,20 @@ static int max3421e_mode_setup(const struct device *dev)
 	}
 
 	priv->mode = mode;
+
+	io = BIT(3); // Turn on middle LED, just for fun
+
+	ret = max3421e_write_byte(dev, MAX3421E_REG_IOPINS1, io);
+	if (ret) {
+		return ret;
+	}
+
+	io = BIT(3); // Turn on Vbus (5V) for USB
+
+	ret = max3421e_write_byte(dev, MAX3421E_REG_IOPINS2, io);
+	if (ret) {
+		return ret;
+	}
 
 	return 0;
 }
