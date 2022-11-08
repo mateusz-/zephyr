@@ -530,6 +530,155 @@ static int cmd_usbh_disable(const struct shell *sh,
 	return err;
 }
 
+static int cmd_usbd_test(const struct shell *sh, size_t argc, char **argv)
+{
+	int err;
+	struct uhc_transfer *xfer;
+	struct net_buf *buf;
+	const uint8_t addr = 2;
+	uint8_t ep = 1;
+	size_t len = 14;
+
+	len = MIN(sizeof(vreq_test_buf), len);
+
+	xfer = uhc_xfer_alloc(uhc_dev, addr, ep, 0, 512, 10, NULL);
+	if (!xfer) {
+		return -ENOMEM;
+	}
+
+	buf = uhc_xfer_buf_alloc(uhc_dev, xfer, len);
+	if (!buf) {
+		return -ENOMEM;
+	}
+
+	if (USB_EP_DIR_IS_OUT(ep)) {
+		net_buf_add_mem(buf, vreq_test_buf, len);
+	}
+
+	err = uhc_ep_enqueue(uhc_dev, xfer);
+	if (err) {
+		return err;
+	}
+
+	ep = 129;
+	len = 62;
+
+	xfer = uhc_xfer_alloc(uhc_dev, addr, ep, 0, 512, 10, NULL);
+	if (!xfer) {
+		return -ENOMEM;
+	}
+
+	buf = uhc_xfer_buf_alloc(uhc_dev, xfer, len);
+	if (!buf) {
+		return -ENOMEM;
+	}
+
+	if (USB_EP_DIR_IS_OUT(ep)) {
+		net_buf_add_mem(buf, vreq_test_buf, len);
+	}
+
+	err = uhc_ep_enqueue(uhc_dev, xfer);
+	if (err) {
+		return err;
+	}
+
+	return err;
+}
+
+static int cmd_usbd_magic(const struct shell *sh,
+			  size_t argc, char **argv)
+{
+	int err;
+	const uint8_t hubConfig = 1;
+	const uint8_t hubAddress = 1;
+	const uint8_t agPort = 1;
+	const uint8_t agIface = 0;
+	const uint8_t agConfig = 1;
+	const uint8_t agAddress = 2;
+	const uint8_t agIfaceVal = 3;
+
+	err = cmd_usbh_init(sh, argc, argv);
+	if (err) {
+		return err;
+	}
+
+	err = cmd_usbh_enable(sh, argc, argv);
+	if (err) {
+		return err;
+	}
+
+	err = cmd_bus_resume(sh, argc, argv);
+	if (err) {
+		return err;
+	}
+
+	err = usbh_req_set_address(uhc_dev, 0, hubAddress);
+	if (err) {
+		shell_error(sh, "host: Failed to set address");
+		return err;
+	} else {
+		shell_print(sh, "host: New device address is 0x%02x", 1);
+	}
+
+	err = usbh_req_set_cfg(uhc_dev, hubAddress, hubConfig);
+	if (err) {
+		shell_error(sh, "host: Failed to set configuration");
+		return err;
+	} else {
+		shell_print(sh, "host: Device 0x%02x, new configuration %u",
+			    hubAddress, hubConfig);
+	}
+
+	err = usbh_req_set_hcfs_ppwr(uhc_dev, hubAddress, agPort);
+	if (err) {
+		shell_error(sh, "host: Failed to set ppwr feature");
+		return err;
+	} else {
+		shell_print(sh, "host: Device 0x%02x, port %d, ppwr feature set", hubAddress, agPort);
+	}
+
+	// without this the port wouldn't reset?
+	k_usleep(400000);
+
+	err = usbh_req_set_hcfs_prst(uhc_dev, hubAddress, agPort);
+	if (err) {
+		shell_error(sh, "host: Failed to set prst feature");
+		return err;
+	} else {
+		shell_print(sh, "host: Device 0x%02x, port %d, prst feature set", hubAddress, agPort);
+	}
+
+	// without this the port wouldn't reset?
+	k_usleep(400000);
+
+	err = usbh_req_set_address(uhc_dev, 0, agAddress);
+	if (err) {
+		shell_error(sh, "host: Failed to set address");
+		return err;
+	} else {
+		shell_print(sh, "host: New device address is 0x%02x", agAddress);
+	}
+
+	err = usbh_req_set_cfg(uhc_dev, agAddress, agConfig);
+	if (err) {
+		shell_error(sh, "host: Failed to set configuration");
+		return err;
+	} else {
+		shell_print(sh, "host: Device 0x%02x, new configuration %u",
+			    agAddress, agConfig);
+	}
+
+	err = usbh_req_set_pstn_ctrls(uhc_dev, agAddress, agIface, agIfaceVal);
+	if (err) {
+		shell_error(sh, "host: Failed to set pstn ctrls");
+		return err;
+	} else {
+		shell_print(sh, "host: Device 0x%02x, ctrls set %d", agAddress, agIfaceVal);
+	}
+
+	return cmd_usbd_test(sh, argc, argv);
+}
+
 SHELL_STATIC_SUBCMD_SET_CREATE(desc_cmds,
 	SHELL_CMD_ARG(device, NULL, "<address>",
 		      cmd_desc_device, 2, 0),
@@ -605,6 +754,10 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_usbh_cmds,
 		      NULL, 1, 0),
 	SHELL_CMD_ARG(device, &device_cmds, "device commands",
 		      NULL, 1, 0),
+	SHELL_CMD_ARG(magic, NULL, "[none]",
+		      cmd_usbd_magic, 1, 0),
+	SHELL_CMD_ARG(test, NULL, "[none]",
+		      cmd_usbd_test, 1, 0),
 	SHELL_SUBCMD_SET_END
 );
 
