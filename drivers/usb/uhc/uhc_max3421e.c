@@ -465,7 +465,6 @@ static int max3421e_hrslt_success(const struct device *dev)
 		break;
 	case MAX3421E_HXFR_TYPE_BULKOUT:
 		if (buf->len == 0) {
-			LOG_INF("hrslt bulk out %u", buf->len);
 			err = uhc_xfer_foo(xfer);
 		}
 		break;
