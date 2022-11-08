@@ -23,6 +23,7 @@ LOG_MODULE_REGISTER(usbh_shell, CONFIG_USBH_LOG_LEVEL);
 
 const static struct shell *ctx_shell;
 static const struct device *uhc_dev;
+static bool transfer_finished = false;
 
 static void print_dev_desc(const struct shell *sh,
 			   const struct usb_device_descriptor *const desc)
@@ -49,8 +50,6 @@ static int bazfoo_request(struct usbh_contex *const ctx,
 {
 	const struct device *dev = ctx->dev;
 
-	shell_info(ctx_shell, "host: transfer finished %p, err %d", xfer, err);
-
 	while (!k_fifo_is_empty(&xfer->done)) {
 		struct net_buf *buf;
 
@@ -67,7 +66,11 @@ static int bazfoo_request(struct usbh_contex *const ctx,
 		}
 	}
 
-	return uhc_xfer_free(dev, xfer);
+	err = uhc_xfer_free(dev, xfer);
+
+	transfer_finished = true;
+
+	return err;
 }
 
 static int bazfoo_connected(struct usbh_contex *const uhs_ctx)
@@ -115,6 +118,7 @@ USBH_DEFINE_CLASS(bazfoo) = {
 };
 
 static uint8_t vreq_test_buf[1024] = { 0x7b, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0xd4, 0xff, 0x0f, 0x7d };
+static uint8_t vreq_test_w_buf[153600] = { 0 };
 
 static int cmd_bulk(const struct shell *sh, size_t argc, char **argv)
 {
@@ -532,7 +536,7 @@ static int cmd_usbh_disable(const struct shell *sh,
 	return err;
 }
 
-static int cmd_usbd_test(const struct shell *sh, size_t argc, char **argv)
+static int cmd_usbd_test_get_axis(const struct shell *sh, size_t argc, char **argv)
 {
 	int err;
 	struct uhc_transfer *xfer;
@@ -587,6 +591,47 @@ static int cmd_usbd_test(const struct shell *sh, size_t argc, char **argv)
 	return err;
 }
 
+static int cmd_usbd_test_write(const struct shell *sh, size_t argc, char **argv)
+{
+	int err;
+	struct uhc_transfer *xfer;
+	struct net_buf *buf;
+	const uint8_t addr = 2;
+	uint8_t ep = 1;
+	size_t len = 1;
+
+	len = 512;
+
+	for (int i = 0; i < (sizeof(vreq_test_w_buf) / len); i++) {
+		transfer_finished = false;
+
+		xfer = uhc_xfer_alloc(uhc_dev, addr, ep, 0, len, 10, NULL);
+		if (!xfer) {
+			return -ENOMEM;
+		}
+
+		buf = uhc_xfer_buf_alloc(uhc_dev, xfer, len);
+		if (!buf) {
+			return -ENOMEM;
+		}
+
+		if (USB_EP_DIR_IS_OUT(ep)) {
+			net_buf_add_mem(buf, &vreq_test_w_buf[len * i], len);
+		}
+
+		err = uhc_ep_enqueue(uhc_dev, xfer);
+		if (err) {
+			return err;
+		}
+
+		while (!transfer_finished) {
+			k_yield();
+		}
+	}
+
+	return err;
+}
+
 static int cmd_usbd_magic(const struct shell *sh,
 			  size_t argc, char **argv)
 {
@@ -598,6 +643,10 @@ static int cmd_usbd_magic(const struct shell *sh,
 	const uint8_t agConfig = 1;
 	const uint8_t agAddress = 2;
 	const uint8_t agIfaceVal = 3;
+
+	memset(vreq_test_w_buf, 0xAB, sizeof(vreq_test_w_buf));
+	vreq_test_w_buf[0] = 0xAA;
+	vreq_test_w_buf[sizeof(vreq_test_w_buf) - 1] = 0xAC;
 
 	err = cmd_usbh_init(sh, argc, argv);
 	if (err) {
@@ -678,7 +727,7 @@ static int cmd_usbd_magic(const struct shell *sh,
 		shell_print(sh, "host: Device 0x%02x, ctrls set %d", agAddress, agIfaceVal);
 	}
 
-	return cmd_usbd_test(sh, argc, argv);
+	return cmd_usbd_test_get_axis(sh, argc, argv);
 }
 
 SHELL_STATIC_SUBCMD_SET_CREATE(desc_cmds,
@@ -758,8 +807,10 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_usbh_cmds,
 		      NULL, 1, 0),
 	SHELL_CMD_ARG(magic, NULL, "[none]",
 		      cmd_usbd_magic, 1, 0),
-	SHELL_CMD_ARG(test, NULL, "[none]",
-		      cmd_usbd_test, 1, 0),
+	SHELL_CMD_ARG(test_get_axis, NULL, "[none]",
+		      cmd_usbd_test_get_axis, 1, 0),
+	SHELL_CMD_ARG(test_write, NULL, "<length>",
+		      cmd_usbd_test_write, 1, 1),
 	SHELL_SUBCMD_SET_END
 );
 
