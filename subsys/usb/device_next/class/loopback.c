@@ -287,7 +287,6 @@ struct usbd_class_api lb_api = {
 	.control_to_host = lb_control_to_host,
 	.control_to_dev = lb_control_to_dev,
 	.request = lb_request_handler,
-	.sof = NULL,
 	.init = lb_init,
 };
 

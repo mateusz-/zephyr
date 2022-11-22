@@ -224,7 +224,6 @@ struct usbd_class_api foobaz_api = {
 	.request = foobaz_ep_request,
 	.suspended = foobaz_suspended,
 	.resumed = foobaz_resumed,
-	.sof = NULL,
 	.init = foobaz_init,
 };
 

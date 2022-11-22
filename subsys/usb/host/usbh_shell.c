@@ -24,7 +24,6 @@ LOG_MODULE_REGISTER(usbh_shell, CONFIG_USBH_LOG_LEVEL);
 USBH_CONROLLER_DEFINE(uhs_ctx, DEVICE_DT_GET(DT_NODELABEL(zephyr_uhc0)));
 
 const static struct shell *ctx_shell;
-static bool transfer_finished = false;
 
 static void print_dev_desc(const struct shell *sh,
 			   const struct usb_device_descriptor *const desc)
@@ -68,8 +67,6 @@ static int bazfoo_request(struct usbh_contex *const ctx,
 	}
 
 	err = uhc_xfer_free(dev, xfer);
-
-	transfer_finished = true;
 
 	return err;
 }
@@ -601,17 +598,19 @@ static int cmd_usbd_test_write(const struct shell *sh, size_t argc, char **argv)
 	len = 512;
 
 	for (int i = 0; i < (sizeof(vreq_test_w_buf) / len); i++) {
-		transfer_finished = false;
+		do {
+			xfer = uhc_xfer_alloc(uhs_ctx.dev, addr, ep, 0, len, 10, NULL);
+			if (xfer == NULL) {
+				k_yield();
+			}
+		} while (xfer == NULL);
 
-		xfer = uhc_xfer_alloc(uhs_ctx.dev, addr, ep, 0, len, 10, NULL);
-		if (!xfer) {
-			return -ENOMEM;
-		}
-
-		buf = uhc_xfer_buf_alloc(uhs_ctx.dev, xfer, len);
-		if (!buf) {
-			return -ENOMEM;
-		}
+		do {
+			buf = uhc_xfer_buf_alloc(uhs_ctx.dev, xfer, len);
+			if (buf == NULL) {
+				k_yield();
+			}
+		} while (buf == NULL);
 
 		if (USB_EP_DIR_IS_OUT(ep)) {
 			net_buf_add_mem(buf, &vreq_test_w_buf[len * i], len);
@@ -620,10 +619,6 @@ static int cmd_usbd_test_write(const struct shell *sh, size_t argc, char **argv)
 		err = uhc_ep_enqueue(uhs_ctx.dev, xfer);
 		if (err) {
 			return err;
-		}
-
-		while (!transfer_finished) {
-			k_yield();
 		}
 	}
 
